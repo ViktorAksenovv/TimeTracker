@@ -1,0 +1,57 @@
+name: Build TimeTracker
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Qt
+        run: brew install qt
+        
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+          
+      - name: Create DMG
+        run: |
+          cd build
+          /usr/local/opt/qt/bin/macdeployqt TimeTrack.app
+          hdiutil create -volname "TimeTracker" -srcfolder TimeTrack.app -ov -format UDZO TimeTracker.dmg
+          
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: TimeTracker-Mac
+          path: build/TimeTracker.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Qt
+        run: |
+          sudo apt update
+          sudo apt install -y qt6-base-dev qt6-tools-dev cmake make
+          
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+          
+      - name: Upload Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: TimeTracker-Linux
+          path: build/TimeTrack
