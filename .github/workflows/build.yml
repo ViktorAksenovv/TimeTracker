@@ -14,30 +14,41 @@ jobs:
       - name: Install Qt
         run: |
           brew install qt
-          echo "Qt installed at: $(brew --prefix qt)"
+          echo "QT_PATH=$(brew --prefix qt)" >> $GITHUB_ENV
           
-      - name: Build
+      - name: Configure CMake
         run: |
           mkdir build
           cd build
-          cmake ..
+          cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt)
+          
+      - name: Build
+        run: |
+          cd build
           make
           
-      - name: Find macdeployqt
+      - name: Deploy Qt libraries
         run: |
-          find /usr/local -name "macdeployqt" 2>/dev/null || true
-          find /opt -name "macdeployqt" 2>/dev/null || true
+          cd build
+          # Правильный путь к macdeployqt
+          MACDEPLOYQT=$(find /usr/local/Cellar/qt -name "macdeployqt" -type f 2>/dev/null | head -1)
+          if [ -z "$MACDEPLOYQT" ]; then
+            MACDEPLOYQT=$(find /opt/homebrew/Cellar/qt -name "macdeployqt" -type f 2>/dev/null | head -1)
+          fi
+          echo "Using macdeployqt: $MACDEPLOYQT"
+          
+          # Запускаем macdeployqt
+          $MACDEPLOYQT TimeTrack.app -verbose=2
+          
+          # Проверяем что внутри .app
+          ls -la TimeTrack.app/Contents/Frameworks/
+          ls -la TimeTrack.app/Contents/PlugIns/
           
       - name: Create DMG
         run: |
           cd build
-          MACDEPLOYQT=$(find /usr/local -name macdeployqt -type f 2>/dev/null | head -1)
-          if [ -z "$MACDEPLOYQT" ]; then
-            MACDEPLOYQT=$(find /opt -name macdeployqt -type f 2>/dev/null | head -1)
-          fi
-          echo "Using macdeployqt at: $MACDEPLOYQT"
-          $MACDEPLOYQT TimeTrack.app
-          hdiutil create -volname "TimeTracker" -srcfolder TimeTrack.app -ov -format UDZO TimeTracker.dmg
+          # Создаем DMG
+          hdiutil create -volname "TimeTracker" -srcfolder TimeTrack.app -ov -format UDZO -fs HFS+ TimeTracker.dmg
           
       - name: Upload DMG
         uses: actions/upload-artifact@v4
